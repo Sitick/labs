@@ -1,0 +1,48 @@
+ Лабораторная №1
+
+== Задание
+1. Сделать бегущий огонь из 4 светодиодов, подключенных к портам C.5, C.8, C9, A.5
+2. Заготовка лежит с настройками портов светодиодов лежит в https://github.com/lamer0k/stm32Labs/tree/master/Lab1
+3. Сделать отчет как обычно
+
+
+== Работа с программой
+Код:
+----
+ int main()
+ {
+ RCC::AHB1ENR::GPIOCEN::Enable::Set() ;
+ RCC::AHB1ENR::GPIOAEN::Enable::Set() ;
+ GPIOA::MODER::MODER5::Output::Set();
+ GPIOC::MODER::MODER9::Output::Set() ;
+ GPIOC::MODER::MODER8::Output::Set() ;
+ GPIOC::MODER::MODER5::Output::Set() ;
+ for(int j=0;j<1000;++j)//поскольку не рекомендуется использовать бесконечный цикл
+ {
+  GPIOA::ODR::ODR5::High::Set();
+  delay(1000000);
+  GPIOA::ODR::ODR5::Low::Set();
+  delay(1000000);
+  GPIOC::ODR::ODR9::High::Set();
+  delay(1000000);
+  GPIOC::ODR::ODR9::Low::Set();
+  delay(1000000);
+  GPIOC::ODR::ODR8::High::Set();
+  delay(1000000);
+  GPIOC::ODR::ODR8::Low::Set();
+  delay(1000000);
+  GPIOC::ODR::ODR5::High::Set();
+  delay(1000000);
+  GPIOC::ODR::ODR5::Low::Set();
+  delay(1000000);
+ }
+return 0;
+}
+
+На рисунках представлены некоторые состояния платы:
+
+image::IMG20211008104445.jpg[]
+
+image::IMG20211008104408.jpg[]
+
+image::IMG20211008104443.jpg[]
