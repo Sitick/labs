@@ -32,7 +32,11 @@ image::image-2021-09-29-23-18-28-635.png[]
 * f(PLL general clock output) = f(VCO clock) / PLLP
 * f(USB OTG FS, SDIO) = f(VCO clock) / PLLQ
 
-В нашем случае подходит первый способ. При этом PLLN принимает значения: 50 ≤ PLLN ≤ 432, а PLLM: 2 ≤ PLLM ≤ 63. Для получения из частоты 8 МГц 30 МГц необходимо умножить на 60 и разделить на 16.
+Поскольку PLLP по умолчанию равно 2, в нашем случае формула примет следующий вид:
+
+f(PLL general clock output) = f(PLL clock input) × (PLLN / PLLM) / PLLP
+
+При этом PLLN принимает значения: 50 ≤ PLLN ≤ 432, а PLLM: 2 ≤ PLLM ≤ 63. Для получения из частоты 16 МГц 30 МГц необходимо умножить на 60 и разделить на 16.
 
 Включаем нужный источник и дожидаемся его стабилизации. Настраиваем PLL, включаем его, дожидаемся его стабилизации, назначаем его на системную частоту, и дожидаемся пока не переключится. Ниже представлен код данных действий:
 
@@ -40,7 +44,7 @@ image::image-2021-09-29-23-18-28-635.png[]
 #include "rccregisters.hpp" // for RCC
 #include "gpioaregisters.hpp" //for Gpioa
 #include "gpiocregisters.hpp" //for GPIOC
-std::uint32_t SystemCoreClock = 8'000'000U;
+std::uint32_t SystemCoreClock = 16'000'000U;
 extern "C"
 {
 int __low_level_init(void)
@@ -98,12 +102,6 @@ int main()
    }
 return 0;
 }
-
-При запуске появляется ошибка:
-
-image::image-2021-10-21-19-40-36-665.png[]
-
-Но если ее игнорировать то все работает.
 
 Результат:
 
