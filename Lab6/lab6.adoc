@@ -1,0 +1,74 @@
+:figure-caption: Рисунок
+:table-caption: Таблица
+= Лабораторная №1 Думановский А.А. КЭ-413
+:toc:
+:toc-title: Оглавление:
+
+
+
+== Задание
+
+* Написать программу, которая по нажатию на User Button зажигает все (4) светодиоды, по следующему нажатию тушит все (4) светодиоды. Нужно настроить правильно порты, на Вход,  Medium Speed, без подтяжек, подтяжка на кнопку есть внешняя, поэтому внутренняя не нужна.
+
+== Работа с программой
+Запустили необходимый файл, выбали необходимую плату.
+
+image::image-2021-09-29-23-17-13-190.png[]
+
+Выбрали необходимый отладчик.
+
+image::image-2021-09-29-23-18-28-635.png[]
+
+Подключаем необходимые шины, назначаем порты диодов как Выход, на скорости "Medium Speed", а кнопку как Вход на такой же скорости.
+
+Код подключения представлен ниже:
+
+[source, c++]
+RCC::APB2ENR::SYSCFGEN::Enable::Set();
+RCC::AHB1ENR::GPIOAEN::Enable::Set(); // Подключаем к шине
+RCC::AHB1ENR::GPIOCEN::Enable::Set(); // Подключаем к шине
+GPIOA::OSPEEDR::OSPEEDR5::MediumSpeed::Set();
+GPIOA::MODER::MODER5::Output::Set();
+GPIOC::OSPEEDR::OSPEEDR5::MediumSpeed::Set();
+GPIOC::MODER::MODER5::Output::Set();
+GPIOC::OSPEEDR::OSPEEDR9::MediumSpeed::Set();
+GPIOC::MODER::MODER9::Output::Set();
+GPIOC::OSPEEDR::OSPEEDR8::MediumSpeed::Set();
+GPIOC::MODER::MODER8::Output::Set();
+GPIOC::OSPEEDR::OSPEEDR13::MediumSpeed::Set();
+GPIOC::MODER::MODER13::Input::Set();
+
+После чего пишем программу которая по нажатию кнопки включать или выключать диоды, при этом учтем что на кнопке есть внешнаяя подтяка на уровень Hight, следовательно при нажатии уровень будет меняться на Low.
+
+Код программы:
+[source, c++]
+int main()
+{
+static  uint8_t flag = 0;
+for (;;)
+{
+if(GPIOC::IDR::IDR13::Low::IsSet() && flag==0)
+{
+GPIOA::ODR::ODR5::High::Set();
+GPIOC::ODR::ODR5::High::Set();
+GPIOC::ODR::ODR8::High::Set();
+GPIOC::ODR::ODR9::High::Set();
+flag =1;
+continue;
+}
+if (GPIOC::IDR::IDR13::Low::IsSet() && flag==1)
+{
+GPIOA::ODR::ODR5::Low::Set();
+GPIOC::ODR::ODR5::Low::Set();
+GPIOC::ODR::ODR8::Low::Set();
+GPIOC::ODR::ODR9::Low::Set();
+flag =0;
+continue;
+}
+}
+return 0;
+}
+
+Полученный результат:
+
+image::video_2021-10-27_23-05-39.gif[]
