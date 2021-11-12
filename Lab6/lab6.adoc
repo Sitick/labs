@@ -44,31 +44,24 @@ GPIOC::MODER::MODER13::Input::Set();
 [source, c++]
 int main()
 {
-static  uint8_t flag = 0;
-for (;;)
-{
-if(GPIOC::IDR::IDR13::Low::IsSet() && flag==0)
-{
-GPIOA::ODR::ODR5::High::Set();
-GPIOC::ODR::ODR5::High::Set();
-GPIOC::ODR::ODR8::High::Set();
-GPIOC::ODR::ODR9::High::Set();
-flag =1;
-continue;
-}
-if (GPIOC::IDR::IDR13::Low::IsSet() && flag==1)
-{
-GPIOA::ODR::ODR5::Low::Set();
-GPIOC::ODR::ODR5::Low::Set();
-GPIOC::ODR::ODR8::Low::Set();
-GPIOC::ODR::ODR9::Low::Set();
-flag =0;
-continue;
-}
+ for (;;)
+  {
+ if(GPIOC::IDR::IDR13::Low::IsSet())
+    {
+      //ждем пока не отпуститсся
+      while(GPIOC::IDR::IDR13::Low::IsSet())
+      {
+      }
+    led1.Toggle();
+    led2.Toggle();
+    led3.Toggle();
+    led4.Toggle();
+    }
+     delay(1000000);
 }
 return 0;
 }
 
 Полученный результат:
 
-image::video_2021-10-27_23-05-39.gif[]
+image::video_2021-11-12_21-02-30.gif[]
