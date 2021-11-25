@@ -1,0 +1,233 @@
+:figure-caption: Рисунок
+:table-caption: Таблица
+
+= Лабораторная №1 Думановский А.А. КЭ-413
+:toc:
+:toc-title: Оглавление:
+
+
+
+== Задание
+
+Доделать дизайн, который позволяет настраивать любой режим моргания светодиодов, с любым количеством светодиодов, привязанных к любым пинам портов.
+
+
+== Работа с программой
+Перед построением программы составим ее архитектуру.
+
+image::image-2021-11-25-20-17-56-678.png[]
+
+Распишем каждый класс и его функции:
+
+=== Led
+Данный класс используется для переопределения функции.
+
+[source, c++]
+#pragma once
+#include "iled.h"
+template<typename Port, uint32_t pinNum>
+class Led : public ILed
+{
+public:
+  void toggle() override
+  {
+    Port::ODR::Toggle(1U << pinNum);
+  }
+  void swicthOff() override
+  {
+     GPIOA::ODR::ODR5::Low::Set();
+     GPIOC::ODR::ODR5::Low::Set();
+     GPIOC::ODR::ODR8::Low::Set();
+     GPIOC::ODR::ODR9::Low::Set();
+  }
+};
+
+=== Leds
+В данном классе описаны функции модов мигания диодов и их переключения
+
+[source, c++]
+#pragma once
+#include "gpioaregisters.hpp" //for Gpioa
+#include "gpiocregisters.hpp" //for GPIOC
+#include "iled.h"
+template <auto* ...pArgs>
+struct Leds
+{
+ ILed* pLeds[sizeof ...(pArgs)] = {pArgs...};
+ void toggle()
+ {
+   for (auto it: pLeds)
+    {
+     it ->toggle();
+    }
+ }
+ void swicthOff()
+ {
+   for (auto it: pLeds)
+    {
+     it ->swicthOff();
+    }
+ }
+ };
+
+=== Button
+
+Класс описывающий функцию отжима кнопки
+
+[source, c++]
+#pragma once
+#include "ibutton.h"
+template<typename Port, uint32_t pinNum>
+class Button: public IButton
+{
+public:
+  bool IsPressed() override
+  {
+    bool result = false;
+    // Если кнопка прижата
+    if(((Port::IDR::Get())&(1U << pinNum)) == 0)
+    {
+      //ждем пока не отпуститсся
+      result = true;
+    }
+     return result;
+  }
+};
+
+=== ileds, iMode и ibutton
+Виртуальные классы
+
+[source, c++]
+#pragma once
+class ILed
+{
+public:
+virtual void toggle() = 0;
+virtual void swicthOff() = 0;
+};
+
+[source, c++]
+#pragma once
+class IMode
+{
+public:
+virtual void toggle() const = 0;
+virtual void init() const = 0;
+};
+
+=== Modes
+
+[source, c++]
+#pragma once
+#include "imode.h"
+template <auto* ...pArgs>
+struct Modes
+{
+public:
+ void Update()
+ {
+  pModes[modeIndex]->toggle();
+ }
+  void NextMode()
+ {
+   modeIndex++;
+   if (modeIndex == std::size(pModes))
+   {
+    modeIndex = 0U;
+   }
+   pModes[modeIndex]->init();
+ }
+private:
+ uint32_t modeIndex = 0U;
+ IMode* pModes[sizeof ...(pArgs)] = {pArgs...};
+};
+
+=== Chess
+
+[source, c++]
+#pragma once
+#include "imode.h"
+template <auto& TLeds>
+class Chess : public IMode
+{
+public:
+  void toggle() const override
+ {
+  TLeds.toggle();
+ }
+  void init() const override
+ {
+    for ( uint32_t index =0; index < std::size(TLeds.pLeds); ++index)
+  {
+   if ((index %2)==0)
+  {
+   TLeds.pLeds[index]->toggle();
+ }
+}
+}
+};
+
+=== Tree
+
+[source, c++]
+#pragma once
+#include "imode.h"
+template <auto& TLeds>
+class Tree : public IMode
+{
+public:
+void toggle() const override
+{
+  for ( uint32_t index =0; index < std::size(TLeds.pLeds); ++index)
+ {
+    TLeds.pLeds[index]->toggle();
+   for (int i = 0; i < 500000; ++i)
+  {
+   asm volatile("");
+  }
+}
+}
+void init() const override
+{
+TLeds.swicthOff();
+}
+};
+
+=== Main
+В результате в мейне остается только подключить созданные  классы:
+[source, c++]
+Led<GPIOA, 5U> led1;
+Led<GPIOC, 5U> led2;
+Led<GPIOC, 8U> led3;
+Led<GPIOC, 9U> led4;
+Leds<&led2,&led3, &led4,&led1> leds;
+Button<GPIOC, 13U> userButton;
+Chess<leds> chessMode;
+All<leds> allMode;
+Tree<leds> treeMode;
+Modes<&allMode, &treeMode, &chessMode> modes;
+int main()
+{
+   for (;;)
+  {
+    if (userButton.IsPressed())
+   {
+     modes.NextMode();
+   }
+    modes.Update();
+    delay(1000000);
+  }
+return 1;
+}
+
+
+
+
+== Результат
+
+image::video_2021-11-25_20-39-26.gif[]
+
+== Какие ошибки совершил
+
+* Не смог найти как сделать так, чтобы swicthOff чистил только используемые диоды, программа тушит ве имеющиеся
+* В елочке задержку желательно делать через таймер, потому что такая задержка тормозит прогу в результате чего не всегда переключается
