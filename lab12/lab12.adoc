@@ -97,7 +97,7 @@ extern "C"
    ADC_Common::CCR::TSVREFE::Set(1U);
    ADC1::JSQR::JSQ4::Set(1U);
    //Set single conversion mode
-   ADC1::CR1::RES::Set(0);
+   ADC1::CR1::RES::Set(0U);
    ADC1::CR2::CONT::Set(1U);
    ADC1::CR2::EOCS::Set(0U);
    // Set 84 cycles sample rate for channel 18
@@ -105,7 +105,7 @@ extern "C"
    // Set laentgh of conversion sequence to 1
    ADC1::JSQR::JL::Set(0x00);
    // Connect first conversion on Channel 18
-   ADC1::JSQR::JSQ4::Set(18);
+   ADC1::JSQR::JSQ4::Set(18U);
    RCC::AHB1ENR::GPIOAEN::Enable::Set();
    // Постра а в альтернативныей режим
    GPIOA::MODER::MODER2::Alternate::Set();
@@ -132,9 +132,7 @@ int main()
   string temp;
   ADC1::CR2::ADON::Set(1);
   uint16_t Tmin=((uint16_t)0x1FFF);
-  const char* mes="hello ";
   USART2::CR1::TE::Enable::Set();
-  const char* ptr = mes;
   for(;;)
   {
        //Start conversion
