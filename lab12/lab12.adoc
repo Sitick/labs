@@ -1,0 +1,170 @@
+:figure-caption: Рисунок
+:table-caption: Таблица
+
+= Лабораторная №1 Думановский А.А. КЭ-413
+:toc:
+:toc-title: Оглавление:
+
+== Задание
+
+1. Измерить температуру микроконтроллера с помощью АЦП и инженекторных каналов.
+2. Для перевода кода АЦП в температуру использовать калибровочный точки, указанные в datasheet на микроконтроллер. Там указан, адреса двух точке, по которым лежат значения кодов температуры при 110 и 30 градусах цельсия.
+3. Вывести полученное значение в терминал по UART.
+
+== АЦП микроконтроллера STM32F411
+
+АЦП(макс 12 разрядов) микроконтроллера STM32F411 работает по принципу последовательного приближения.
+
+* Основные элементы АЦП:
+
+** Наличие регулярных и инжектированных каналов – отличие только в том, что инжектированные каналы могут писать данные в 4 регистра с 4 каналов сразу, а регулярный только в один регистр
+
+** 19 аналоговых каналов, 16 из которых которые могут сконфигурированы на работу от внешних источников или 3 внутренних.
+
+** Внешние каналы поступают на мультиплексор, где выбирается только один из них. Т.е. в один момент времени может быть измерено напряжение только с одного канала.
+
+** Результат преобразования сохраняется в регистрах данных. Для регулярных каналов это только один 16 битный регистр. Для инжектированных – 4.
+
+** Запуск преобразования может быть как программным, так и внешним. Внешний запуск может происходить от таймеров или с двух внешних входов.
+
+== Схема АЦП микроконтроллера STM32F411
+
+image::image-2021-12-17-21-30-06-641.png[]
+
+== Режим одиночного преобразования
+
+В этом режиме АЦП находится сразу после сброса. Бит CONT регистра ADC_CR2 равен 0.
+
+* Для начала работы с АЦП в этом режиме нужно
+
+** Настроить нужный порт, подключенный к нужному каналу АЦП на аналоговый вход
+
+** Подать тактирование на АЦП
+
+** Выбрать нужный канал для измерения
+
+** Настроить канал АЦП на нужную частоту преобразования
+
+** Включить АЦП
+
+** Начать преобразование
+
+** Дождаться флага готовности преобразования
+
+** Считать преобразованное значение
+
+== Описание интерфейса UART
+
+UART означает универсальный асинхронный приёмопередатчик и определяет протокол или набор правил для обмена последовательными данными между двумя устройствами. UART — очень простой протокол, в котором используется только два провода между передатчиком и приемником для передачи и приема в обоих направлениях. Оба конца также имеют заземление. Связь в UART может быть симплексной (данные передаются только в одном направлении), полудуплексной (каждая сторона осуществляет передачу, но только по очереди), или полнодуплексной (обе стороны могут передавать одновременно). Данные в UART передаются в виде кадров.
+
+Одним из больших преимуществ UART является его асинхронность — передатчик и приемник не используют общий тактовый сигнал. Хотя это значительно упрощает протокол, данное свойство предъявляет определенные требования к передатчику и приемнику. Поскольку у них нет общего тактового сигнала, оба конца должны передавать с одинаковой заранее заданной скоростью, чтобы иметь одинаковую синхронизацию битов.
+
+
+== Работа с программой
+
+Подключаем необходимые библиотек, после чего настраиваем передачу по UART, а также производим настройку АЦП для измерения температуры, после преобразовываем значение температуры и выводим его по интерфейсу.
+
+[source, c++]
+#include "gpioaregisters.hpp"  //for Gpioa
+#include "gpiocregisters.hpp"  //for Gpioc
+#include "gpiobregisters.hpp"  //for Gpiob
+#include "rccregisters.hpp"    //for RCC
+#include "tim2registers.hpp"   //for SPI2
+#include "nvicregisters.hpp"   //for NVIC
+#include "usart2registers.hpp" //for USART2
+#include "adc1registers.hpp" //for ADC1
+#include "adccommonregisters.hpp" //for ADCCommon
+#include <iostream>
+#include <string>
+#include <sstream>
+#include <iomanip>
+using namespace std ;
+extern "C"
+{
+ int __low_level_init(void)
+ {
+ RCC::CR::HSION::On::Set() ;
+ while (!RCC::CR::HSIRDY::Ready::IsSet())
+ {
+ }
+ RCC::CFGR::SW::Hsi::Set() ;
+ while (!RCC::CFGR::SWS::Hsi::IsSet())
+ {
+ }
+   //Switch on clock on ADC1
+   RCC::APB2ENR::ADC1EN::Enable::Set();
+   //Switch On internal tempearture sensor
+   ADC_Common::CCR::TSVREFE::Set(1U);
+   ADC1::JSQR::JSQ4::Set(1U);
+   //Set single conversion mode
+   ADC1::CR1::RES::Set(0);
+   ADC1::CR2::CONT::Set(1U);
+   ADC1::CR2::EOCS::Set(0U);
+   // Set 84 cycles sample rate for channel 18
+   ADC1::SMPR1::SMP18::Set(4U);
+   // Set laentgh of conversion sequence to 1
+   ADC1::JSQR::JL::Set(0x00);
+   // Connect first conversion on Channel 18
+   ADC1::JSQR::JSQ4::Set(18);
+   RCC::AHB1ENR::GPIOAEN::Enable::Set();
+   // Постра а в альтернативныей режим
+   GPIOA::MODER::MODER2::Alternate::Set();
+   GPIOA::MODER::MODER3::Alternate::Set();
+   GPIOA::AFRL::AFRL2::Af7::Set(); //Tx usart2
+   GPIOA::AFRL::AFRL3::Af7::Set(); //Rx usart2
+   //Подключить usart2 к шине тактирования
+   RCC::APB1ENR::USART2EN::Enable::Set();
+   USART2::CR1::OVER8::OversamplingBy16::Set();
+   USART2::CR1::M::Data8bits::Set();
+   USART2::CR1::PCE::ParityControlDisable::Set();
+   USART2::BRR::Write(16'000'000/(9600));
+   USART2::CR1::UE::Enable::Set();
+   return 1;
+ }
+}
+int main()
+{
+  uint32_t data = 0U ;
+  const char* temper = " ";
+  float temperature = 0.0F ;
+  uint16_t *B1 = (uint16_t *)0x1FFF7A2C;
+  uint16_t *K1 = (uint16_t *)0x1FFF7A2E;
+  string temp;
+  ADC1::CR2::ADON::Set(1);
+  uint16_t Tmin=((uint16_t)0x1FFF);
+  const char* mes="hello ";
+  USART2::CR1::TE::Enable::Set();
+  const char* ptr = mes;
+  for(;;)
+  {
+       //Start conversion
+    ADC1::CR2::JSWSTART::Set(1U);
+    // wait until Conversion is not complete
+    while(ADC1::SR::JEOC::Value0::IsSet())
+    {
+    }
+    //Get data from ADC
+    data = ADC1::JDR1::Get();
+    temperature = (((float)(110-30)/(*K1-*B1)*((float)data - *B1))+30) ; //Convert ADC counts to temperature
+    temp = to_string(temperature);
+    temp.insert(0, "Temperatura: ");
+    temp.append("       ");
+    tempout = temp.c_str();
+    USART2::DR::Write(*ptr);
+    while(USART2::SR::TXE::DataRegisterNotEmpty::IsSet())
+    {
+    }
+     ptr++;
+    if(*ptr == 0)
+    {
+      ptr=tempout;
+       for(int i=0;i<1000000;i++)
+       {
+       }
+    }
+  }
+  return 0 ;
+}
+
+== Результат
+image::image-2022-02-06-20-21-59-971.png[]
