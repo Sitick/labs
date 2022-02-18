@@ -115,5 +115,5 @@ void LedTask::Execute()
 
 Полная структура кода:
 
+image::image-2022-02-18-21-24-45-326.png[]
 
-image::image-2022-02-18-21-14-26-144.png[]
